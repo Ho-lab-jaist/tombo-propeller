@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+import rospy
+import math
+import numpy as np
+from geometry_msgs.msg import PoseStamped, Twist, Quaternion
+from mavros_msgs.msg import PositionTarget
+from mavros_function import MavrosFunction
+from pymavlink import mavutil
+from std_msgs.msg import Header
+from threading import Thread
+from tf.transformations import quaternion_from_euler
+
+class MavrosOffboardPosctl(MavrosFunction):
+    """
+    Tests flying in swing motion at a certain height in offboard control
+    by sending  raw setpoints with appropriate type mask (z, vx, vy) via MAVROS.
+    For the test to be successful it needs to reach the target height in a certain time.
+    """
+
+    def __init__(self):
+
+	rospy.init_node('swing_action_node')
+        
+	super(MavrosOffboardPosctl, self).__init__()
+	
+        self.raw_point = PositionTarget()
+	self.pos = PoseStamped()
+	self.vel = Twist()
+        self.radius = 0.1
+
+        # self.raw_setpoint_pub = rospy.Publisher('mavros/setpoint_raw/local', PositionTarget, queue_size=10)
+	self.pos_setpoint_pub = rospy.Publisher('mavors/setpoint_position/local', PoseStamped, queue_size = 10)
+	self.vel_setpoint_pub = rospy.Publisher('mavors/setpoint_velocity/cmd_vel_unstamped', Twist, queue_size = 10)
+        # send raw setpoints in separate thread to better prevent failsafe
+        self.pos_thread = Thread(target=self.send_pos, args=())
+        self.pos_thread.daemon = True
+        self.pos_thread.start()
+
+        #
+        # Helper method
+        #
+    def send_pos(self):
+        rate = rospy.Rate(20) #Hz
+        self.raw_point.header = Header()
+        self.raw_point.header.frame_id = "base_footprint"
+	# self.pos.header = Header()
+	# self.pos.header.frame_id = "base_pose"
+
+        while not rospy.is_shutdown():
+            self.raw_point.header.stamp = rospy.Time.now()
+            self.raw_point.coordinate_frame = 1
+            self.raw_point.type_mask = 3043
+
+            self.raw_setpoint_pub.publish(self.raw_point)
+	    
+            # self.pos.header.stamp = rospy.Time.now()
+	    # self.pos_setpoint_pub.publish(self.pos)
+            # self.vel_setpoint_pub.publish(self.vel)
+            try:
+                rate.sleep()
+            except rospy.ROSException as e:
+                rospy.logerr(e)
+
+    def is_at_position(self, x, y, z, offset):
+        """offset: meters"""
+        rospy.logdebug("current position | x:{0:.2f}, y:{1:.2f}, z:{2:.2f}".
+                       format(self.local_position.pose.position.x, self.local_position.pose.position.y,
+                              self.local_position.pose.position.z))
+
+        target_pos = np.array((x, y, z))
+        current_pos = np.array((self.local_position.pose.position.x,
+                                self.local_position.pose.position.y,
+                                self.local_position.pose.position.z))
+        return np.linalg.norm(target_pos - current_pos) < offset
+
+    def is_at_height(self, h, offset):
+        """offset: meters"""
+        rospy.logdebug("current height | h:{0:.2f}".format(self.local_position.pose.position.z))
+
+        return h - self.local_position.pose.position.z < offset
+
+    def reach_position(self, x, y, z, timeout):
+        """timeout(int): seconds"""
+        # set a position setpoint
+        # self.pos.pose.position.x = x
+        # self.pos.pose.position.y = y
+        # self.pos.pose.position.z = z
+
+        self.pos.pose.position.x = x
+        self.pos.pose.position.y = y
+        self.pos.pose.position.z = z
+        rospy.loginfo("attempting to reach position | x: {0:.2f}, y: {1:.2f}, z: {2:.2f} | current position x: {3:.2f}, y: {4:.2f}, z: {5:.2f}".
+                      format(x, y, z, self.local_position.pose.position.x,
+                             self.local_position.pose.position.y,
+                             self.local_position.pose.position.z))
+        
+	# for the experiment we will lock yaw/heading to north
+	yaw_degrees = 0 # North
+	yaw = math.radians(yaw_degrees)
+	quaternion = quaternion_from_euler(0, 0, yaw)
+	self.pos.pose.orientation = Quaternion(*quaternion)
+
+	# does it reach the position in 'timeout' seconds?
+        loop_freq = 2  # Hz
+        rate = rospy.Rate(loop_freq)
+        # reached = False
+        for i in range(timeout*loop_freq):
+            if self.is_at_position(self.pos.position.x,
+                                   self.pos.position.y,
+                                   self.pos.position.z, self.radius):
+                rospy.loginfo("position reached | seconds: {0} of {1}".format(i/loop_freq, timeout))
+                # reached = True
+                break
+
+            try:
+                rate.sleep()
+            except rospy.ROSException as e:
+                rospy.logerr(e)
+    
+    def reach_velocity(self, vx, vy, vz):
+	"""timeout(int): seconds"""
+	self.vel.linear.x = vx
+	self.vel.linear.y = vy
+	self.vel.linear.z = vz
+        rospy.loginfo("attempting to reach velocity | vx: {0:.2f}, vy: {1:.2f}, vz: {2:.2f}".format(vx, vy, vz))
+	
+
+    def swing_motion(self, vx, timeout):
+        """timeout(int): seconds"""
+        # set a constant velocity in y-axis
+        rospy.loginfo("producing swing motion with velocity, at height | vx: {0:.2f}, h: {1:.2f}".format(vx, h))
+        loop_freq = 1
+        rate = rospy.Rate(loop_freq)
+        for i in range(timeout*loop_freq):
+            self.reach_velocity(vx, 0., 0.)
+            vx = -vx
+
+            try:
+                rate.sleep()
+            except rospy.ROSException as e:
+                rospy.logerr(e)
+        self.reach_velocity(0., 0., 0.)
+
+    def test_swing_motion(self):
+        """Test swing motion at a certain height"""
+
+        # make sure topics are ready
+        self.wait_for_topics(60)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND, 10, -1)
+
+        self.log_topic_vars()
+        self.set_mode("OFFBOARD", 5)
+        self.set_arm(True, 5)
+
+        rospy.loginfo("start action")
+        #self.swing_action(0.2, 2.0, 10)
+	self.reach_position(0, 0, 2, 30)
+
+        self.set_mode("AUTO.LAND", 5)
+        self.wait_for_landed_state(mavutil.mavlink.MAV_LANDED_STATE_ON_GROUND, 45, 0)
+        self.set_arm(False, 5)
+
+if __name__ == '__main__':
+    swing_act = MavrosOffboardPosctl()
+    swing_act.test_swing_motion()
+
