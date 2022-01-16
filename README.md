@@ -28,10 +28,6 @@ $ roslaunch vrpn_client_ros sample.launch server:=192.168.11.13
 
 3. Run mavros node to connect to the drone (PX4 flight stack) and Qground control
 
-```
-$ roslaunch vitaclink_gazebo vitaclink_world.launch
-```
-
 4. Relay orientation topic.
 
 
