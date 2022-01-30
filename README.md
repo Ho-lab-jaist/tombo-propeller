@@ -1,4 +1,4 @@
-## Drone with TOMBO propellers
+## Drone with TOMBO propeller
 The repository contains programs and ROS packages for controlling (s500) drone embedded with TOMBO propellers.
 
 ## For Developers
