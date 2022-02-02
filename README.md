@@ -1,7 +1,7 @@
 ## _Tombo_ Propeller: Bio-Inspired Deformable Structure toward Collision-Accommodated Control for Drones
 The repository contains programs and ROS packages for controlling (s500) drone embedded with TOMBO propellers.
 
-![Tombo drone](./Aerodynamic_model/fig.png "TOMBO propeller embedded drone")
+![Tombo drone](fig.png "TOMBO propeller embedded drone")
 
 ## Documentation
 ### Aerodynamic modeling
