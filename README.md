@@ -1,9 +1,17 @@
 ## _Tombo_ Propeller: Bio-Inspired Deformable Structure toward Collision-Accommodated Control for Drones
 The repository contains programs and ROS packages for controlling (s500) drone embedded with TOMBO propellers.
 
+![Tombo drone](./Aerodynamic_model/fig.png "TOMBO propeller embedded drone")
+
 ## Documentation
 ### Aerodynamic modeling
+1. Tombo_aerodynamic_model.m : areodynamic Matlab function for 9inch-TOMBO propeller
 
+2. aeorodynamic_parameters.m : a program for generating aerodynamic parameters
+
+3. Airfoil.csv : airfoil data includes the coordinates of leading edge and trailing edge and pitch angle of all corss-sections
+
+4. Camberline.dat: camberline data of the _representative cross-section_
 
 ### Setup motion capture system (MOCAP):
 
