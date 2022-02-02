@@ -41,11 +41,14 @@ $ roslaunch vrpn_client_ros sample.launch server:=192.168.11.13
 ### Equilibrium Bounce Reaction Strategy:
 
 ## Contact
+- Project Manager
+	- Ho Anh Van - [van-ho@jaist.ac.jp](mailto:van-ho@jaist.ac.jp)
+- Developers
+  - Luu Khanh Quan - [quan-luu@jaist.ac.jp](mailto:quan-luu@jaist.ac.jp) : Flight and Reaction Control
+	- Bui Tien Son - [nhnhan@jaist.ac.jp](mailto:son-bui@jaist.ac.jp) : Aerodynamic modeling
 
 ## Acknowledgments
 This work was supported by JST SCORE project, Grant-in-aid for Scientific Research projects No. 18H01406 and 21H01287
 
 ## License
 Distributed under the MIT License. See `LICENSE` for more information.
-
-
